@@ -83,7 +83,8 @@ func (f *DPFile) Patch([]webdav.Proppatch) ([]webdav.Propstat, error) {
 // open it to read its contents.
 //
 type FS struct {
-	Root string
+	Root         string
+	AllowHandler func(ctx context.Context, name string, allow webdav.Allow) bool
 }
 
 //
@@ -105,7 +106,7 @@ func (d FS) resolve(name string) string {
 }
 
 func (d FS) Allow(ctx context.Context, name string, allow webdav.Allow) bool {
-	return true
+	return d.AllowHandler(ctx, name, allow)
 }
 
 func (d FS) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
@@ -125,10 +126,10 @@ func (d FS) OpenFile(ctx context.Context, name string, flag int, perm os.FileMod
 	if !d.Allow(ctx, name, webdav.AllowStat) {
 		return nil, os.ErrNotExist
 	}
-	if (flag&os.O_RDWR) != 0 && !d.Allow(ctx, name, webdav.AllowOpenFileRead) {
+	if !d.Allow(ctx, name, webdav.AllowOpenFileRead) {
 		return nil, webdav.ErrNotAllowed
 	}
-	if !d.Allow(ctx, name, webdav.AllowOpenFileWrite) {
+	if (flag&os.O_RDWR) != 0 && !d.Allow(ctx, name, webdav.AllowOpenFileWrite) {
 		return nil, webdav.ErrNotAllowed
 	}
 	f, err := os.OpenFile(name, flag, perm)
