@@ -6,7 +6,9 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"github.com/rfielding/datadav/webdav"
+
+	"github.com/rfielding/webdev/webdav"
+	"github.com/rfielding/webdev/webdav/fs"
 )
 
 var dir string
@@ -23,7 +25,7 @@ func main() {
 	dir = *dirFlag
 
 	srv := &webdav.Handler{
-		FileSystem: webdav.Dir(dir),
+		FileSystem: fs.Dir(dir),
 		LockSystem: webdav.NewMemLS(),
 		Logger: func(r *http.Request, err error) {
 			if err != nil {

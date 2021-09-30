@@ -364,7 +364,7 @@ func findResourceType(ctx context.Context, fs FileSystem, ls LockSystem, name st
 }
 
 func findDisplayName(ctx context.Context, fs FileSystem, ls LockSystem, name string, fi os.FileInfo) (string, error) {
-	if slashClean(name) == "/" {
+	if SlashClean(name) == "/" {
 		// Hide the real name of a possibly prefixed root directory.
 		return "", nil
 	}

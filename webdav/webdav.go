@@ -3,10 +3,9 @@
 // license that can be found in the LICENSE file.
 
 // Package webdav provides a WebDAV server implementation.
-package webdav // import "golang.org/x/net/webdav"
+package webdav 
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -360,16 +359,16 @@ func (h *Handler) handleCopyMove(w http.ResponseWriter, r *http.Request) (status
 
 		// Section 9.8.3 says that "The COPY method on a collection without a Depth
 		// header must act as if a Depth header with value "infinity" was included".
-		depth := infiniteDepth
+		depth := InfiniteDepth
 		if hdr := r.Header.Get("Depth"); hdr != "" {
 			depth = parseDepth(hdr)
-			if depth != 0 && depth != infiniteDepth {
+			if depth != 0 && depth != InfiniteDepth {
 				// Section 9.8.3 says that "A client may submit a Depth header on a
 				// COPY on a collection with a value of "0" or "infinity"."
 				return http.StatusBadRequest, ErrInvalidDepth
 			}
 		}
-		return copyFiles(ctx, h.FileSystem, src, dst, r.Header.Get("Overwrite") != "F", depth, 0)
+		return CopyFiles(ctx, h.FileSystem, src, dst, r.Header.Get("Overwrite") != "F", depth, 0)
 	}
 
 	release, status, err := h.confirmLocks(r, src, dst)
@@ -382,11 +381,11 @@ func (h *Handler) handleCopyMove(w http.ResponseWriter, r *http.Request) (status
 	// a "Depth: infinity" header was used on it. A client must not submit a
 	// Depth header on a MOVE on a collection with any value but "infinity"."
 	if hdr := r.Header.Get("Depth"); hdr != "" {
-		if parseDepth(hdr) != infiniteDepth {
+		if parseDepth(hdr) != InfiniteDepth {
 			return http.StatusBadRequest, ErrInvalidDepth
 		}
 	}
-	return moveFiles(ctx, h.FileSystem, src, dst, r.Header.Get("Overwrite") == "T")
+	return MoveFiles(ctx, h.FileSystem, src, dst, r.Header.Get("Overwrite") == "T")
 }
 
 func (h *Handler) handleLock(w http.ResponseWriter, r *http.Request) (retStatus int, retErr error) {
@@ -424,10 +423,10 @@ func (h *Handler) handleLock(w http.ResponseWriter, r *http.Request) (retStatus 
 	} else {
 		// Section 9.10.3 says that "If no Depth header is submitted on a LOCK request,
 		// then the request MUST act as if a "Depth:infinity" had been submitted."
-		depth := infiniteDepth
+		depth := InfiniteDepth
 		if hdr := r.Header.Get("Depth"); hdr != "" {
 			depth = parseDepth(hdr)
-			if depth != 0 && depth != infiniteDepth {
+			if depth != 0 && depth != InfiniteDepth {
 				// Section 9.10.3 says that "Values other than 0 or infinity must not be
 				// used with the Depth header on a LOCK method".
 				return http.StatusBadRequest, ErrInvalidDepth
@@ -519,7 +518,7 @@ func (h *Handler) handlePropfind(w http.ResponseWriter, r *http.Request) (status
 		}
 		return http.StatusMethodNotAllowed, err
 	}
-	depth := infiniteDepth
+	depth := InfiniteDepth
 	if hdr := r.Header.Get("Depth"); hdr != "" {
 		depth = parseDepth(hdr)
 		if depth == invalidDepth {
@@ -563,7 +562,7 @@ func (h *Handler) handlePropfind(w http.ResponseWriter, r *http.Request) (status
 		return mw.write(makePropstatResponse(href, pstats))
 	}
 
-	walkErr := walkFS(ctx, h.FileSystem, depth, reqPath, fi, walkFn)
+	walkErr := WalkFS(ctx, h.FileSystem, depth, reqPath, fi, walkFn)
 	closeErr := mw.close()
 	if walkErr != nil {
 		return http.StatusInternalServerError, walkErr
@@ -634,12 +633,12 @@ func makePropstatResponse(href string, pstats []Propstat) *response {
 }
 
 const (
-	infiniteDepth = -1
+	InfiniteDepth = -1
 	invalidDepth  = -2
 )
 
 // parseDepth maps the strings "0", "1" and "infinity" to 0, 1 and
-// infiniteDepth. Parsing any other string returns invalidDepth.
+// InfiniteDepth. Parsing any other string returns invalidDepth.
 //
 // Different WebDAV methods have further constraints on valid depths:
 //	- PROPFIND has no further restrictions, as per section 9.1.
@@ -654,7 +653,7 @@ func parseDepth(s string) int {
 	case "1":
 		return 1
 	case "infinity":
-		return infiniteDepth
+		return InfiniteDepth
 	}
 	return invalidDepth
 }
@@ -683,26 +682,3 @@ func StatusText(code int) string {
 	}
 	return http.StatusText(code)
 }
-
-var (
-	// The errors need to be public so that implementations can
-	// return them, as there are equality checks done against them!
-	ErrDestinationEqualsSource = errors.New("webdav: destination equals source")
-	ErrDirectoryNotEmpty       = errors.New("webdav: directory not empty")
-	ErrInvalidDepth            = errors.New("webdav: invalid depth")
-	ErrInvalidDestination      = errors.New("webdav: invalid destination")
-	ErrInvalidIfHeader         = errors.New("webdav: invalid If header")
-	ErrInvalidLockInfo         = errors.New("webdav: invalid lock info")
-	ErrInvalidLockToken        = errors.New("webdav: invalid lock token")
-	ErrInvalidPropfind         = errors.New("webdav: invalid propfind")
-	ErrInvalidProppatch        = errors.New("webdav: invalid proppatch")
-	ErrInvalidResponse         = errors.New("webdav: invalid response")
-	ErrInvalidTimeout          = errors.New("webdav: invalid timeout")
-	ErrNoFileSystem            = errors.New("webdav: no file system")
-	ErrNoLockSystem            = errors.New("webdav: no lock system")
-	ErrNotADirectory           = errors.New("webdav: not a directory")
-	ErrPrefixMismatch          = errors.New("webdav: prefix mismatch")
-	ErrRecursionTooDeep        = errors.New("webdav: recursion too deep")
-	ErrUnsupportedLockInfo     = errors.New("webdav: unsupported lock info")
-	ErrUnsupportedMethod       = errors.New("webdav: unsupported method")
-)
