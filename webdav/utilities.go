@@ -7,6 +7,9 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 )
 
 // slashClean is equivalent to but slightly more efficient than
@@ -213,4 +216,34 @@ func MoveFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bo
 		return http.StatusCreated, nil
 	}
 	return http.StatusNoContent, nil
+}
+
+const InfiniteTimeout = -1
+
+// parseTimeout parses the Timeout HTTP header, as per section 10.7. If s is
+// empty, an infiniteTimeout is returned.
+func parseTimeout(s string) (time.Duration, error) {
+	if s == "" {
+		return InfiniteTimeout, nil
+	}
+	if i := strings.IndexByte(s, ','); i >= 0 {
+		s = s[:i]
+	}
+	s = strings.TrimSpace(s)
+	if s == "Infinite" {
+		return InfiniteTimeout, nil
+	}
+	const pre = "Second-"
+	if !strings.HasPrefix(s, pre) {
+		return 0, ErrInvalidTimeout
+	}
+	s = s[len(pre):]
+	if s == "" || s[0] < '0' || '9' < s[0] {
+		return 0, ErrInvalidTimeout
+	}
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil || 1<<32-1 < n {
+		return 0, ErrInvalidTimeout
+	}
+	return time.Duration(n) * time.Second, nil
 }

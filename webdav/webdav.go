@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // Package webdav provides a WebDAV server implementation.
-package webdav 
+package webdav
 
 import (
 	"fmt"
@@ -83,7 +83,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) lock(now time.Time, root string) (token string, status int, err error) {
 	token, err = h.LockSystem.Create(now, LockDetails{
 		Root:      root,
-		Duration:  infiniteTimeout,
+		Duration:  InfiniteTimeout,
 		ZeroDepth: true,
 	})
 	if err != nil {

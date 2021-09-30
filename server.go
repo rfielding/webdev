@@ -26,7 +26,7 @@ func main() {
 
 	srv := &webdav.Handler{
 		FileSystem: fs.Dir(dir),
-		LockSystem: webdav.NewMemLS(),
+		LockSystem: fs.NewMemLS(),
 		Logger: func(r *http.Request, err error) {
 			if err != nil {
 				log.Printf("WEBDAV [%s]: %s, ERROR: %s\n", r.Method, r.URL, err)
