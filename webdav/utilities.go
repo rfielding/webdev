@@ -7,8 +7,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-
-	"golang.org/x/net/webdav"
 )
 
 // slashClean is equivalent to but slightly more efficient than
@@ -190,7 +188,7 @@ func CopyProps(dst, src File) error {
 // moveFiles moves files and/or directories from src to dst.
 //
 // See section 9.9.4 for when various HTTP status codes apply.
-func MoveFiles(ctx context.Context, fs webdav.FileSystem, src, dst string, overwrite bool) (status int, err error) {
+func MoveFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bool) (status int, err error) {
 	created := false
 	if _, err := fs.Stat(ctx, dst); err != nil {
 		if !os.IsNotExist(err) {

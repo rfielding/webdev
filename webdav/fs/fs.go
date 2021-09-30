@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rfielding/datadav/webdav"
+	"github.com/rfielding/webdev/webdav"
 )
 
 // A Dir implements FileSystem using the native file system restricted to a
