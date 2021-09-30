@@ -168,15 +168,7 @@ func CopyFiles(ctx context.Context, fs FileSystem, src, dst string, overwrite bo
 }
 
 func CopyProps(dst, src File) error {
-	d, ok := dst.(DeadPropsHolder)
-	if !ok {
-		return nil
-	}
-	s, ok := src.(DeadPropsHolder)
-	if !ok {
-		return nil
-	}
-	m, err := s.DeadProps()
+	m, err := src.DeadProps()
 	if err != nil {
 		return err
 	}
@@ -184,7 +176,7 @@ func CopyProps(dst, src File) error {
 	for _, prop := range m {
 		props = append(props, prop)
 	}
-	_, err = d.Patch([]Proppatch{{Props: props}})
+	_, err = dst.Patch([]Proppatch{{Props: props}})
 	return err
 }
 

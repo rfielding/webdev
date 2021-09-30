@@ -179,11 +179,9 @@ func props(ctx context.Context, fs FileSystem, ls LockSystem, name string, pname
 	isDir := fi.IsDir()
 
 	var deadProps map[xml.Name]Property
-	if dph, ok := f.(DeadPropsHolder); ok {
-		deadProps, err = dph.DeadProps()
-		if err != nil {
-			return nil, err
-		}
+	deadProps, err = f.DeadProps()
+	if err != nil {
+		return nil, err
 	}
 
 	pstatOK := Propstat{Status: http.StatusOK}
@@ -227,11 +225,9 @@ func propnames(ctx context.Context, fs FileSystem, ls LockSystem, name string) (
 	isDir := fi.IsDir()
 
 	var deadProps map[xml.Name]Property
-	if dph, ok := f.(DeadPropsHolder); ok {
-		deadProps, err = dph.DeadProps()
-		if err != nil {
-			return nil, err
-		}
+	deadProps, err = f.DeadProps()
+	if err != nil {
+		return nil, err
 	}
 
 	pnames := make([]xml.Name, 0, len(liveProps)+len(deadProps))
@@ -310,30 +306,31 @@ loop:
 		return nil, err
 	}
 	defer f.Close()
-	if dph, ok := f.(DeadPropsHolder); ok {
-		ret, err := dph.Patch(patches)
-		if err != nil {
-			return nil, err
+	ret, err := f.Patch(patches)
+	if err != nil {
+		return nil, err
+	}
+	// http://www.webdav.org/specs/rfc4918.html#ELEMENT_propstat says that
+	// "The contents of the prop XML element must only list the names of
+	// properties to which the result in the status element applies."
+	for _, pstat := range ret {
+		for i, p := range pstat.Props {
+			pstat.Props[i] = Property{XMLName: p.XMLName}
 		}
-		// http://www.webdav.org/specs/rfc4918.html#ELEMENT_propstat says that
-		// "The contents of the prop XML element must only list the names of
-		// properties to which the result in the status element applies."
-		for _, pstat := range ret {
-			for i, p := range pstat.Props {
-				pstat.Props[i] = Property{XMLName: p.XMLName}
+	}
+	return ret, nil
+
+	/*
+		// The file doesn't implement the optional DeadPropsHolder interface, so
+		// all patches are forbidden.
+		pstat := Propstat{Status: http.StatusForbidden}
+		for _, patch := range patches {
+			for _, p := range patch.Props {
+				pstat.Props = append(pstat.Props, Property{XMLName: p.XMLName})
 			}
 		}
-		return ret, nil
-	}
-	// The file doesn't implement the optional DeadPropsHolder interface, so
-	// all patches are forbidden.
-	pstat := Propstat{Status: http.StatusForbidden}
-	for _, patch := range patches {
-		for _, p := range patch.Props {
-			pstat.Props = append(pstat.Props, Property{XMLName: p.XMLName})
-		}
-	}
-	return []Propstat{pstat}, nil
+		return []Propstat{pstat}, nil
+	*/
 }
 
 func escapeXML(s string) string {

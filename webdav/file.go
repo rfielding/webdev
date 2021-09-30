@@ -28,16 +28,24 @@ type FileSystem interface {
 	RemoveAll(ctx context.Context, name string) error
 	Rename(ctx context.Context, oldName, newName string) error
 	Stat(ctx context.Context, name string) (os.FileInfo, error)
+	Allow(ctx context.Context, name string, allow Allow) bool
 }
+
+type Allow string
+
+const AllowMkdir = Allow("Mkdir")
+const AllowOpenFileRead = Allow("OpenFileRead")
+const AllowOpenFileWrite = Allow("OpenFileWrite")
+const AllowRemoveAll = Allow("RemoveAll")
+const AllowRename = Allow("Rename")
+const AllowStat = Allow("Stat")
 
 // A File is returned by a FileSystem's OpenFile method and can be served by a
 // Handler.
-//
-// A File may optionally implement the DeadPropsHolder interface, if it can
-// load and save dead properties.
 type File interface {
 	http.File
 	io.Writer
+	DeadPropsHolder
 }
 
 var (
@@ -61,4 +69,5 @@ var (
 	ErrRecursionTooDeep        = errors.New("webdav: recursion too deep")
 	ErrUnsupportedLockInfo     = errors.New("webdav: unsupported lock info")
 	ErrUnsupportedMethod       = errors.New("webdav: unsupported method")
+	ErrNotAllowed              = errors.New("webdav: not allowed")
 )
