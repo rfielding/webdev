@@ -84,10 +84,10 @@ func (a *authWrappedHandler) ServeHTTP(
 }
 
 type Permission struct {
-	Create            bool   `json:"Create,omitempty"`
-	Read     bool   `json:"Read,omitempty"`
-	Write    bool   `json:"Write,omitempty"`
-	Delete        bool   `json:"Delete,omitempty"`
+	Create           bool   `json:"Create,omitempty"`
+	Read             bool   `json:"Read,omitempty"`
+	Write            bool   `json:"Write,omitempty"`
+	Delete           bool   `json:"Delete,omitempty"`
 	Stat             bool   `json:"Stat,omitempty"`
 	Banner           string `json:"Banner,omitempty`
 	BannerForeground string `json:"BannerForeground,omitempty`

@@ -3,12 +3,12 @@ package fs
 import (
 	"context"
 	"encoding/xml"
+	"github.com/rfielding/webdev/webdav"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
-	"path"
-	"github.com/rfielding/webdev/webdav"
 )
 
 type Allow string
@@ -136,12 +136,12 @@ func (d FS) OpenFile(ctx context.Context, name string, flag int, perm os.FileMod
 		return nil, os.ErrNotExist
 	}
 	_, err := os.Stat(name)
-	// on create, ask parent if we can modify it	
+	// on create, ask parent if we can modify it
 	if os.IsNotExist(err) {
 		permission := d.AllowHandler(ctx, path.Dir(name))
 		if (flag&os.O_RDWR) != 0 && !d.Allow(ctx, permission, AllowCreate) {
 			return nil, webdav.ErrNotAllowed
-		}	
+		}
 	} else {
 		// on update, ask file if it can be modified
 		permission := d.AllowHandler(ctx, name)
@@ -150,7 +150,7 @@ func (d FS) OpenFile(ctx context.Context, name string, flag int, perm os.FileMod
 		}
 		if (flag&os.O_RDWR) != 0 && !d.Allow(ctx, permission, AllowWrite) {
 			return nil, webdav.ErrNotAllowed
-		}	
+		}
 	}
 	f, err := os.OpenFile(name, flag, perm)
 	if err != nil {
