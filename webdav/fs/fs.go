@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
+	"path"
 	"github.com/rfielding/webdev/webdav"
 )
 
@@ -138,15 +138,22 @@ func (d FS) OpenFile(ctx context.Context, name string, flag int, perm os.FileMod
 	if name = d.resolve(name); name == "" {
 		return nil, os.ErrNotExist
 	}
-	permission := d.AllowHandler(ctx, name)
-	if !d.Allow(ctx, permission, AllowStat) {
-		return nil, os.ErrNotExist
-	}
-	if !d.Allow(ctx, permission, AllowOpenFileRead) {
-		return nil, webdav.ErrNotAllowed
-	}
-	if (flag&os.O_RDWR) != 0 && !d.Allow(ctx, permission, AllowOpenFileWrite) {
-		return nil, webdav.ErrNotAllowed
+	_, err := os.Stat(name)
+	// on create, ask parent if we can modify it	
+	if os.IsNotExist(err) {
+		permission := d.AllowHandler(ctx, path.Dir(name))
+		if (flag&os.O_RDWR) != 0 && !d.Allow(ctx, permission, AllowOpenFileWrite) {
+			return nil, webdav.ErrNotAllowed
+		}	
+	} else {
+		// on update, ask file if it can be modified
+		permission := d.AllowHandler(ctx, name)
+		if !d.Allow(ctx, permission, AllowStat) {
+			return nil, os.ErrNotExist
+		}
+		if (flag&os.O_RDWR) != 0 && !d.Allow(ctx, permission, AllowOpenFileWrite) {
+			return nil, webdav.ErrNotAllowed
+		}	
 	}
 	f, err := os.OpenFile(name, flag, perm)
 	if err != nil {
