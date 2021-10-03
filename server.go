@@ -1,11 +1,11 @@
 package main
 
 import (
-	"github.com/rfielding/webdev/webdav/fs"
+	"github.com/rfielding/webdev/webdav/fs/example1"
 )
 
 var dir string
 
 func main() {
-	fs.ExampleMain()
+	example1.ExampleMain()
 }

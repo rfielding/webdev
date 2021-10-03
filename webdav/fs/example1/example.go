@@ -1,4 +1,4 @@
-package fs
+package example1
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/rfielding/webdev/webdav"
+	"github.com/rfielding/webdev/webdav/fs"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -117,7 +118,7 @@ type Claims struct {
 
 type ClaimsContext struct {
 	Claims Claims
-	Action Action
+	Action fs.Action
 }
 
 /*
@@ -125,7 +126,7 @@ type ClaimsContext struct {
 */
 var emptyClaims = ClaimsContext{
 	Claims: Claims{Groups: make(map[string][]string)},
-	Action: Action{},
+	Action: fs.Action{},
 }
 
 /*
@@ -133,7 +134,7 @@ var emptyClaims = ClaimsContext{
   and also inject context of what we are trying to do,
   as that may be part of the calculation.
 */
-func claimsInContext(root, username string, action Action) interface{} {
+func claimsInContext(root, username string, action fs.Action) interface{} {
 	claimsFile := fmt.Sprintf("%s/%s/.__claims.json", root, username)
 	if _, err := os.Stat(path.Dir(claimsFile)); os.IsNotExist(err) {
 		err = os.Mkdir(path.Dir(claimsFile),0744)
@@ -219,12 +220,12 @@ func regoOf(root, name string) string {
 */
 func buildHandler(dir string) {
 	// wire together a handler
-	fs := FS{Root: dir}
-	allowed := func(ctx context.Context, action Action) map[string]interface{} {
+	fsys := fs.FS{Root: dir}
+	allowed := func(ctx context.Context, action fs.Action) map[string]interface{} {
 		// not bothering to check the values at the moment
 		username, _ := ctx.Value("username").(string)
 		//		log.Printf("WEBDAV %s allowed %s on %s", username, allow, name)
-		permission, err := evalRego(claimsInContext(fs.Root, username, action), regoOf(fs.Root, action.Name))
+		permission, err := evalRego(claimsInContext(fsys.Root, username, action), regoOf(fsys.Root, action.Name))
 		if err != nil {
 			log.Printf("WEBDAV: error evaluating rego: %v", err)
 			return make(map[string]interface{})
@@ -232,12 +233,12 @@ func buildHandler(dir string) {
 		log.Printf("permission: %s: %v", action.Name, AsJson(permission))
 		return permission
 	}
-	fs.PermissionHandler = allowed
+	fsys.PermissionHandler = allowed
 
 	// The raw webdav handler that doesn't have a context set
 	srv := &webdav.Handler{
-		FileSystem: fs,
-		LockSystem: NewMemLS(),
+		FileSystem: fsys,
+		LockSystem: fs.NewMemLS(),
 		Logger: func(r *http.Request, err error) {
 			if err != nil {
 				log.Printf("WEBDAV %s [%s]: %s, ERROR: %s\n", r.Context().Value("username"), r.Method, r.URL, err)
