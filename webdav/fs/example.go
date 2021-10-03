@@ -84,10 +84,10 @@ func (a *authWrappedHandler) ServeHTTP(
 }
 
 type Permission struct {
-	Mkdir            bool   `json:"Mkdir,omitempty"`
-	OpenFileRead     bool   `json:"OpenFileRead,omitempty"`
-	OpenFileWrite    bool   `json:"OpenFileWrite,omitempty"`
-	RemoveAll        bool   `json:"RemoveAll,omitempty"`
+	Create            bool   `json:"Create,omitempty"`
+	Read     bool   `json:"Read,omitempty"`
+	Write    bool   `json:"Write,omitempty"`
+	Delete        bool   `json:"Delete,omitempty"`
 	Stat             bool   `json:"Stat,omitempty"`
 	Banner           string `json:"Banner,omitempty`
 	BannerForeground string `json:"BannerForeground,omitempty`
@@ -126,10 +126,10 @@ func claimsInContext(root, username string) interface{} {
 }
 
 const emptyPolicy = `package policy
-Mkdir = false
-OpenFileRead = false
-OpenFileWrite = false
-RemoveAll = false
+Create = false
+Read = false
+Write = false
+Delete = false
 Stat = false
 Banner = "error"
 BannerForeground = "white"

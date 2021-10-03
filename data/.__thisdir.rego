@@ -1,8 +1,7 @@
 package policy
 
-Mkdir = true
-OpenFileRead = true
-OpenFileWrite = true
+Create = true
+Read = true
 Stat = true
 Banner = "PUBLIC"
 BannerForeground = "white"

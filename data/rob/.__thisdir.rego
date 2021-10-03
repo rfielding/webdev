@@ -1,9 +1,9 @@
 package policy
 
-Mkdir = true
-OpenFileRead = true
-OpenFileWrite = true
-RemoveAll = true
+Create = true
+Read = true
+Write = true
+Delete = true
 Stat = true
 Banner = "PRIVATE"
 BannerForeground = "white"
