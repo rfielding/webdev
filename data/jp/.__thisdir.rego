@@ -1,14 +1,16 @@
 package policy
 
 Stat = true
-Create = true
 Read = true
 
 Write{
-    input.claims.groups.username[_] == "rob"
+    input.claims.groups.username[_] == "jp"
 }
 Delete{
     Write
+}
+Create {
+    Write	
 }
 
 Banner = "PRIVATE"

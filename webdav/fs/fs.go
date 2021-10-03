@@ -48,7 +48,7 @@ func (f *DPFile) Readdir(n int) ([]fs.FileInfo, error) {
 	// filter out what we are not allowed to see
 	filteredResult := make([]fs.FileInfo, 0)
 	for i := range result {
-		permissions := f.FS.AllowHandler(f.Ctx, f.F.Name())
+		permissions := f.FS.PermissionHandler(f.Ctx, f.F.Name())
 		if f.FS.Allow(f.Ctx, permissions, AllowStat) {
 			filteredResult = append(filteredResult, result[i])
 		}
@@ -91,7 +91,7 @@ func (f *DPFile) Patch([]webdav.Proppatch) ([]webdav.Propstat, error) {
 //
 type FS struct {
 	Root         string
-	AllowHandler func(ctx context.Context, name string) map[string]interface{}
+	PermissionHandler func(ctx context.Context, name string) map[string]interface{}
 }
 
 //
@@ -124,7 +124,7 @@ func (d FS) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
 	if name = d.resolve(name); name == "" {
 		return os.ErrNotExist
 	}
-	permission := d.AllowHandler(ctx, path.Base(name))
+	permission := d.PermissionHandler(ctx, path.Base(name))
 	if !d.Allow(ctx, permission, AllowCreate) {
 		return webdav.ErrNotAllowed
 	}
@@ -138,13 +138,13 @@ func (d FS) OpenFile(ctx context.Context, name string, flag int, perm os.FileMod
 	_, err := os.Stat(name)
 	// on create, ask parent if we can modify it
 	if os.IsNotExist(err) {
-		permission := d.AllowHandler(ctx, path.Dir(name))
+		permission := d.PermissionHandler(ctx, path.Dir(name))
 		if (flag&os.O_RDWR) != 0 && !d.Allow(ctx, permission, AllowCreate) {
 			return nil, webdav.ErrNotAllowed
 		}
 	} else {
 		// on update, ask file if it can be modified
-		permission := d.AllowHandler(ctx, name)
+		permission := d.PermissionHandler(ctx, name)
 		if !d.Allow(ctx, permission, AllowStat) {
 			return nil, os.ErrNotExist
 		}
@@ -163,7 +163,7 @@ func (d FS) RemoveAll(ctx context.Context, name string) error {
 	if name = d.resolve(name); name == "" {
 		return os.ErrNotExist
 	}
-	permission := d.AllowHandler(ctx, name)
+	permission := d.PermissionHandler(ctx, name)
 	if !d.Allow(ctx, permission, AllowStat) {
 		return os.ErrNotExist
 	}
@@ -181,7 +181,7 @@ func (d FS) Rename(ctx context.Context, oldName, newName string) error {
 	if oldName = d.resolve(oldName); oldName == "" {
 		return os.ErrNotExist
 	}
-	permission := d.AllowHandler(ctx, oldName)
+	permission := d.PermissionHandler(ctx, oldName)
 	if !d.Allow(ctx, permission, AllowStat) {
 		return os.ErrNotExist
 	}
@@ -194,7 +194,7 @@ func (d FS) Rename(ctx context.Context, oldName, newName string) error {
 		return webdav.ErrNotAllowed
 	}
 
-	permission = d.AllowHandler(ctx, newName)
+	permission = d.PermissionHandler(ctx, newName)
 	if !d.Allow(ctx, permission, AllowWrite) {
 		return webdav.ErrNotAllowed
 	}
@@ -210,7 +210,7 @@ func (d FS) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 	if name = d.resolve(name); name == "" {
 		return nil, os.ErrNotExist
 	}
-	permission := d.AllowHandler(ctx, name)
+	permission := d.PermissionHandler(ctx, name)
 	if !d.Allow(ctx, permission, AllowStat) {
 		return nil, os.ErrNotExist
 	}

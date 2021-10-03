@@ -188,7 +188,7 @@ func buildHandler(dir string) {
 		log.Printf("permission: %s: %v", name, AsJson(permission))
 		return permission
 	}
-	fs.AllowHandler = allowed
+	fs.PermissionHandler = allowed
 
 	// The raw webdav handler that doesn't have a context set
 	srv := &webdav.Handler{
