@@ -48,7 +48,8 @@ func (f *DPFile) Readdir(n int) ([]fs.FileInfo, error) {
 	// filter out what we are not allowed to see
 	filteredResult := make([]fs.FileInfo, 0)
 	for i := range result {
-		if f.FS.Allow(f.Ctx, f.F.Name(), AllowStat) {
+		permissions := f.FS.AllowHandler(f.Ctx, f.F.Name())
+		if f.FS.Allow(f.Ctx, permissions, AllowStat) {
 			filteredResult = append(filteredResult, result[i])
 		}
 	}
@@ -90,7 +91,7 @@ func (f *DPFile) Patch([]webdav.Proppatch) ([]webdav.Propstat, error) {
 //
 type FS struct {
 	Root         string
-	AllowHandler func(ctx context.Context, name string, allow Allow) bool
+	AllowHandler func(ctx context.Context, name string) map[string]interface{}
 }
 
 //
@@ -111,15 +112,20 @@ func (d FS) resolve(name string) string {
 	return filepath.Join(dir, filepath.FromSlash(webdav.SlashClean(name)))
 }
 
-func (d FS) Allow(ctx context.Context, name string, allow Allow) bool {
-	return d.AllowHandler(ctx, name, allow)
+func (d FS) Allow(ctx context.Context, permissions map[string]interface{}, allow Allow) bool {
+	v, ok := permissions[string(allow)].(bool)
+	if ok {
+		return v
+	}
+	return false
 }
 
 func (d FS) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
 	if name = d.resolve(name); name == "" {
 		return os.ErrNotExist
 	}
-	if !d.Allow(ctx, name, AllowMkdir) {
+	permission := d.AllowHandler(ctx, name)
+	if !d.Allow(ctx, permission, AllowMkdir) {
 		return webdav.ErrNotAllowed
 	}
 	return os.Mkdir(name, perm)
@@ -129,13 +135,14 @@ func (d FS) OpenFile(ctx context.Context, name string, flag int, perm os.FileMod
 	if name = d.resolve(name); name == "" {
 		return nil, os.ErrNotExist
 	}
-	if !d.Allow(ctx, name, AllowStat) {
+	permission := d.AllowHandler(ctx, name)
+	if !d.Allow(ctx, permission, AllowStat) {
 		return nil, os.ErrNotExist
 	}
-	if !d.Allow(ctx, name, AllowOpenFileRead) {
+	if !d.Allow(ctx, permission, AllowOpenFileRead) {
 		return nil, webdav.ErrNotAllowed
 	}
-	if (flag&os.O_RDWR) != 0 && !d.Allow(ctx, name, AllowOpenFileWrite) {
+	if (flag&os.O_RDWR) != 0 && !d.Allow(ctx, permission, AllowOpenFileWrite) {
 		return nil, webdav.ErrNotAllowed
 	}
 	f, err := os.OpenFile(name, flag, perm)
@@ -149,10 +156,11 @@ func (d FS) RemoveAll(ctx context.Context, name string) error {
 	if name = d.resolve(name); name == "" {
 		return os.ErrNotExist
 	}
-	if !d.Allow(ctx, name, AllowStat) {
+	permission := d.AllowHandler(ctx, name)
+	if !d.Allow(ctx, permission, AllowStat) {
 		return os.ErrNotExist
 	}
-	if !d.Allow(ctx, name, AllowRemoveAll) {
+	if !d.Allow(ctx, permission, AllowRemoveAll) {
 		return webdav.ErrNotAllowed
 	}
 	if name == filepath.Clean(d.Root) {
@@ -166,17 +174,21 @@ func (d FS) Rename(ctx context.Context, oldName, newName string) error {
 	if oldName = d.resolve(oldName); oldName == "" {
 		return os.ErrNotExist
 	}
-	if !d.Allow(ctx, oldName, AllowStat) {
+	permission := d.AllowHandler(ctx, oldName)
+	if !d.Allow(ctx, permission, AllowStat) {
 		return os.ErrNotExist
 	}
-	if !d.Allow(ctx, oldName, AllowOpenFileRead) {
+	if !d.Allow(ctx, permission, AllowOpenFileRead) {
 		return webdav.ErrNotAllowed
 	}
+
 	// if the name DOES exist, then rename is not allowed
 	if newName = d.resolve(newName); newName != "" {
 		return webdav.ErrNotAllowed
 	}
-	if !d.Allow(ctx, newName, AllowOpenFileWrite) {
+
+	permission = d.AllowHandler(ctx, newName)
+	if !d.Allow(ctx, permission, AllowOpenFileWrite) {
 		return webdav.ErrNotAllowed
 	}
 
@@ -191,7 +203,8 @@ func (d FS) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 	if name = d.resolve(name); name == "" {
 		return nil, os.ErrNotExist
 	}
-	if !d.Allow(ctx, name, AllowStat) {
+	permission := d.AllowHandler(ctx, name)
+	if !d.Allow(ctx, permission, AllowStat) {
 		return nil, os.ErrNotExist
 	}
 	return os.Stat(name)

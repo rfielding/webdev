@@ -84,11 +84,11 @@ func (a *authWrappedHandler) ServeHTTP(
 }
 
 type Permission struct {
-	Mkdir       bool   `json:"Mkdir,omitempty"`
-	OpenFileRead    bool   `json:"OpenFileRead,omitempty"`
-	OpenFileWrite   bool   `json:"OpenFileWrite,omitempty"`
-	RemoveAll   bool   `json:"RemoveAll,omitempty"`
-	Stat        bool   `json:"Stat,omitempty"`
+	Mkdir            bool   `json:"Mkdir,omitempty"`
+	OpenFileRead     bool   `json:"OpenFileRead,omitempty"`
+	OpenFileWrite    bool   `json:"OpenFileWrite,omitempty"`
+	RemoveAll        bool   `json:"RemoveAll,omitempty"`
+	Stat             bool   `json:"Stat,omitempty"`
 	Banner           string `json:"Banner,omitempty`
 	BannerForeground string `json:"BannerForeground,omitempty`
 	BannerBackground string `json:"BannerBackground,omitempty`
@@ -176,20 +176,17 @@ func regoOf(root, name string) string {
 func buildHandler(dir string) {
 	// wire together a handler
 	fs := FS{Root: dir}
-	allowed := func(ctx context.Context, name string, allow Allow) bool {
+	allowed := func(ctx context.Context, name string) map[string]interface{} {
 		// not bothering to check the values at the moment
 		username, _ := ctx.Value("username").(string)
 		//		log.Printf("WEBDAV %s allowed %s on %s", username, allow, name)
 		permission, err := evalRego(claimsInContext(fs.Root, username), regoOf(fs.Root, name))
 		if err != nil {
 			log.Printf("WEBDAV: error evaluating rego: %v", err)
+			return make(map[string]interface{})
 		}
-		log.Printf("permission: %s (%s): %v", name, allow, AsJson(permission))
-		v, ok := permission[string(allow)].(bool)
-		if ok {
-			return v
-		}
-		return false
+		log.Printf("permission: %s: %v", name, AsJson(permission))
+		return permission
 	}
 	fs.AllowHandler = allowed
 
