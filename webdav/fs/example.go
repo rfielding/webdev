@@ -15,6 +15,9 @@ import (
 	"strings"
 )
 
+/*
+  Simple json dump utility
+*/
 func AsJson(obj interface{}) string {
 	j, err := json.MarshalIndent(obj, "", "  ")
 	if err != nil {
@@ -23,6 +26,9 @@ func AsJson(obj interface{}) string {
 	return string(j)
 }
 
+/* 
+  Calculate some permissions
+*/
 func evalRego(claims interface{}, opaObj string) (map[string]interface{}, error) {
 	ctx := context.TODO()
 
@@ -65,6 +71,9 @@ type authWrappedHandler struct {
 	Handler http.Handler
 }
 
+/**
+ Wrap in trivial authentication so that the permission system can work.
+*/
 func (a *authWrappedHandler) ServeHTTP(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -83,6 +92,10 @@ func (a *authWrappedHandler) ServeHTTP(
 	a.Handler.ServeHTTP(w, r)
 }
 
+/*
+  If we were to serialize permissions, these are the known
+  fields.
+*/
 type Permission struct {
 	Create           bool   `json:"Create,omitempty"`
 	Read             bool   `json:"Read,omitempty"`
@@ -94,6 +107,10 @@ type Permission struct {
 	BannerBackground string `json:"BannerBackground,omitempty`
 }
 
+/*
+  This is effectively a set of LDAP groups to model a user,
+  as just a set of multi-valued attributes.
+*/
 type Claims struct {
 	Groups map[string][]string `json:"groups"`
 }
@@ -103,11 +120,19 @@ type ClaimsContext struct {
 	Action Action
 }
 
+/*
+  Return this when something went wrong.
+*/
 var emptyClaims = ClaimsContext{
 	Claims: Claims{Groups: make(map[string][]string)},
 	Action: Action{},
 }
 
+/*
+  Find the JWT claims for the currently logged in user,
+  and also inject context of what we are trying to do,
+  as that may be part of the calculation.
+*/
 func claimsInContext(root, username string, action Action) interface{} {
 	claimsFile := fmt.Sprintf("%s/%s/.__claims.json", root, username)
 	if _, err := os.Stat(path.Dir(claimsFile)); os.IsNotExist(err) {
@@ -135,6 +160,10 @@ func claimsInContext(root, username string, action Action) interface{} {
 	}
 }
 
+/*
+  Calculate a bland policy with no privilege
+  when something goes wrong with parsing policy.
+*/
 const emptyPolicy = `package policy
 Create = false
 Read = false
@@ -146,6 +175,11 @@ BannerForeground = "white"
 BannerBackground = "black"
 `
 
+/*
+  Find the rego that applies to this file.
+  Perhaps not for this file specifically, 
+  but via its parent.
+*/
 func regoOf(root, name string) string {
 	d := path.Dir(name)
 	b := path.Base(name)
@@ -217,7 +251,11 @@ func buildHandler(dir string) {
 	http.Handle("/", &authWrappedHandler{Handler: srv})
 }
 
+/*
+  Generic listener setup.  Use a TLS cert with a SAN of localhost, to make things easier.
+*/
 func listenTo(port int, secure bool) {
+	log.Printf("Starting server at 0.0.0.0:%d", port)
 	if secure {
 		if _, err := os.Stat("./cert.pem"); err != nil {
 			fmt.Println("[x] No cert.pem in current directory. Please provide a valid cert")

@@ -1,4 +1,4 @@
 #!/bin/bash
 
 go mod tidy
-go run server.go
+go build ./... && go run server.go

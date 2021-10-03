@@ -69,12 +69,17 @@ func (f *DPFile) Write(b []byte) (int, error) {
 	return f.F.Write(b)
 }
 
+// TODO: we need to serialize and unserialize dead properties.
+// This is critical to usability for clients, to be able to
+// store their own data
 func (f *DPFile) DeadProps() (map[xml.Name]webdav.Property, error) {
 	return map[xml.Name]webdav.Property{
+		/*
 		{Space: "DAV:", Local: "banner"}: {
 			XMLName:  xml.Name{Space: "DAV:", Local: "banner"},
 			InnerXML: []byte("UNCLASSIFIED"),
 		},
+		*/
 	}, nil
 }
 
@@ -84,16 +89,6 @@ func (f *DPFile) Patch([]webdav.Proppatch) ([]webdav.Propstat, error) {
 
 // A FS implements FileSystem using the native file system restricted to a
 // specific directory tree.
-//
-// While the FileSystem.OpenFile method takes '/'-separated paths, a Dir's
-// string value is a filename on the native file system, not a URL, so it is
-// separated by filepath.Separator, which isn't necessarily '/'.
-//
-// If we are not allowed to Stat the file, then that means to hide
-// it from listings and say that it does not exist.  We may be
-// able to Stat the file to know that it exists; but not to actually
-// open it to read its contents.
-//
 type FS struct {
 	Root         string
 	PermissionHandler func(ctx context.Context, action Action) map[string]interface{}
@@ -102,6 +97,8 @@ type FS struct {
 //
 // The http file system only handles the read part.
 // WebDAV now handles writes, effectively extending http.FileSystem
+// JWT claims handle authorization
+// OpenPolicyAgent calculates permission based on the JWT claims
 //
 
 func (d FS) resolve(name string) string {
