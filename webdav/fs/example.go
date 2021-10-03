@@ -255,7 +255,6 @@ func buildHandler(dir string) {
   Generic listener setup.  Use a TLS cert with a SAN of localhost, to make things easier.
 */
 func listenTo(port int, secure bool) {
-	log.Printf("Starting server at 0.0.0.0:%d", port)
 	if secure {
 		if _, err := os.Stat("./cert.pem"); err != nil {
 			fmt.Println("[x] No cert.pem in current directory. Please provide a valid cert")
@@ -266,9 +265,11 @@ func listenTo(port int, secure bool) {
 			return
 		}
 
-		go http.ListenAndServeTLS(fmt.Sprintf(":%d", port), "cert.pem", "key.pem", nil)
+		log.Printf("Starting server at https://0.0.0.0:%d", port)
+		http.ListenAndServeTLS(fmt.Sprintf(":%d", port), "cert.pem", "key.pem", nil)
 	}
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
+	log.Printf("Starting server at http://127.0.0.1:%d", port)
+	if err := http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", port), nil); err != nil {
 		log.Fatalf("Error with WebDAV server: %v", err)
 	}
 }

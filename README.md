@@ -9,8 +9,11 @@ The existing Google implementation punts on actually implementing dead propertie
 ./run
 ```
 
+
 > This is stable on Linux.  Under MacOS, the mount tends to freeze after stopping and starting it a few times.
 
 Log in as any user/password you want.  This default implementation isn't checking anything yet.
 
-Then go map dav://localhost:8000  to your file explorer, and ensure that you can do full editing on the directory, creating files, launching files.
+- Under Linux go map `davs://localhost:8000` to your file explorer, and ensure that you can do full editing on the directory, creating files, launching files.
+
+- Under MacOS go map `https://localhost:8000` to your file explorer.
