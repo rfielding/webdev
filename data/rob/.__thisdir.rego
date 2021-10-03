@@ -1,10 +1,10 @@
 package policy
 
-AllowMkdir = true
-AllowOpenFileRead = true
-AllowOpenFileWrite = true
-AllowRemoveAll = true
-AllowStat = true
+Mkdir = true
+OpenFileRead = true
+OpenFileWrite = true
+RemoveAll = true
+Stat = true
 Banner = "PRIVATE"
 BannerForeground = "white"
 BannerBackground = "red"

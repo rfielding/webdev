@@ -84,11 +84,11 @@ func (a *authWrappedHandler) ServeHTTP(
 }
 
 type Permission struct {
-	AllowMkdir       bool   `json:"AllowMkdir,omitempty"`
-	AllowOpenRead    bool   `json:"AllowOpenRead,omitempty"`
-	AllowOpenWrite   bool   `json:"AllowOpenWrite,omitempty"`
-	AllowRemoveAll   bool   `json:"AllowRemoveAll,omitempty"`
-	AllowStat        bool   `json:"AllowStat,omitempty"`
+	Mkdir       bool   `json:"Mkdir,omitempty"`
+	OpenFileRead    bool   `json:"OpenFileRead,omitempty"`
+	OpenFileWrite   bool   `json:"OpenFileWrite,omitempty"`
+	RemoveAll   bool   `json:"RemoveAll,omitempty"`
+	Stat        bool   `json:"Stat,omitempty"`
 	Banner           string `json:"Banner,omitempty`
 	BannerForeground string `json:"BannerForeground,omitempty`
 	BannerBackground string `json:"BannerBackground,omitempty`
@@ -126,11 +126,11 @@ func claimsInContext(root, username string) interface{} {
 }
 
 const emptyPolicy = `package policy
-AllowMkdir = false
-AllowOpenRead = false
-AllowOpenWrite = false
-AllowRemoveAll = false
-AllowStat = false
+Mkdir = false
+OpenFileRead = false
+OpenFileWrite = false
+RemoveAll = false
+Stat = false
 Banner = "error"
 BannerForeground = "white"
 BannerBackground = "black"
@@ -184,8 +184,12 @@ func buildHandler(dir string) {
 		if err != nil {
 			log.Printf("WEBDAV: error evaluating rego: %v", err)
 		}
-		log.Printf("permission: %s: %v", name, AsJson(permission))
-		return true
+		log.Printf("permission: %s (%s): %v", name, allow, AsJson(permission))
+		v, ok := permission[string(allow)].(bool)
+		if ok {
+			return v
+		}
+		return false
 	}
 	fs.AllowHandler = allowed
 
