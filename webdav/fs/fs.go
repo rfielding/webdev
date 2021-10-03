@@ -18,7 +18,6 @@ const AllowMkdir = Allow("Mkdir")
 const AllowOpenFileRead = Allow("OpenFileRead")
 const AllowOpenFileWrite = Allow("OpenFileWrite")
 const AllowRemoveAll = Allow("RemoveAll")
-const AllowRename = Allow("Rename")
 const AllowStat = Allow("Stat")
 
 type DPFile struct {
@@ -173,12 +172,18 @@ func (d FS) Rename(ctx context.Context, oldName, newName string) error {
 	if !d.Allow(ctx, oldName, AllowStat) {
 		return os.ErrNotExist
 	}
-	if !d.Allow(ctx, oldName, AllowRename) {
+	if !d.Allow(ctx, oldName, AllowOpenFileRead) {
 		return webdav.ErrNotAllowed
 	}
-	if newName = d.resolve(newName); newName == "" {
-		return os.ErrNotExist
+	// if the name DOES exist, then rename is not allowed
+	if newName = d.resolve(newName); newName != "" {
+		return webdav.ErrNotAllowed
 	}
+	if !d.Allow(ctx, newName, AllowOpenFileWrite) {
+		return webdav.ErrNotAllowed
+	}
+
+
 	if root := filepath.Clean(d.Root); root == oldName || root == newName {
 		// Prohibit renaming from or to the virtual root directory.
 		return os.ErrInvalid
