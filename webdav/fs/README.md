@@ -9,7 +9,7 @@ This is a simple example implementation of the FileSystem that is complex enough
 - To apply more general security labels, you can just place it on the directory instead `/rob/.__thisdir.rego`
 
 
-```json
+```rego
 Stat = true                   # everyone can see the file in listings
 Read{true}                    # everyone can http GET the file
 
