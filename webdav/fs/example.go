@@ -2,14 +2,39 @@ package fs
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/open-policy-agent/opa/rego"
+	"github.com/rfielding/webdev/webdav"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-
-	"github.com/rfielding/webdev/webdav"
+	"path"
+	"strings"
 )
+
+func evalRego(claims interface{}, opaObj string) (map[string]interface{}, error) {
+	ctx := context.TODO()
+
+	compiler := rego.New(
+		rego.Query("data.policy"),
+		rego.Module("policy.rego", opaObj),
+	)
+
+	query, err := compiler.PrepareForEval(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	results, err := query.Eval(ctx, rego.EvalInput(claims))
+	if err != nil {
+		return nil, err
+	}
+	return results[0].Expressions[0].Value.(map[string]interface{}), nil
+}
 
 func ExampleMain() {
 
@@ -50,6 +75,71 @@ func (a *authWrappedHandler) ServeHTTP(
 	a.Handler.ServeHTTP(w, r)
 }
 
+type Permission struct {
+	AllowMkdir bool `json:"AllowMkdir,omitempty"`
+	AllowOpenRead bool `json:"AllowOpenRead,omitempty"`
+	AllowOpenWrite bool `json:"AllowOpenWrite,omitempty"`
+	AllowRemoveAll bool `json:"AllowRemoveAll,omitempty"`
+	AllowStat bool `json:"AllowStat,omitempty"`
+	Banner string `json:"Banner,omitempty`
+	BannerForeground string `json:"BannerForeground,omitempty`
+	BannerBackground string `json:"BannerBackground,omitempty`
+}
+
+type Claims struct {
+	Groups map[string][]string `json:"groups"`
+}
+
+type ClaimsContext struct {
+	Claims Claims
+}
+
+func claimsInContext(root, username string) interface{} {
+	claimsFile := fmt.Sprintf("%s/%s/.__claims.json", root, username)
+	//log.Printf("use claims file %s", claimsFile)
+	data, err := ioutil.ReadFile(claimsFile)
+	if err != nil {
+		log.Printf("WEBDAV: reading claims %v", err)
+	}
+	var claims Claims
+	err = json.Unmarshal(data,&claims)
+	if err != nil {
+		log.Printf("WEBDAV: unmarshal claims %v", err)
+	}
+	return ClaimsContext{
+		Claims: claims,
+	}
+}
+
+func regoOf(root, name string) string {
+	d := path.Dir(name)
+	b := path.Base(name)
+	regoFile := name
+	if strings.HasPrefix(".__", b) {
+		// ignore
+	} else {
+		if d == "." {
+			regoFile = fmt.Sprintf("%s/.__thisdir.rego", b)
+		} else {
+			if s, _ := os.Stat(name); s.IsDir() {
+				regoFile = fmt.Sprintf("%s/.__thisdir.rego", name)
+			} else {
+				regoFile = fmt.Sprintf("%s/.__%s.rego", d, b)
+			}
+		}
+	}
+	//log.Printf("rego file %s", regoFile)
+	data, err := ioutil.ReadFile(regoFile)
+	if d != "." && d != root && os.IsNotExist(err) {
+		return regoOf(root, d)
+	}
+	if err != nil {
+		log.Printf("WEBDAV: reading rego %v", err)
+		return "package policy\n"
+	}
+	return string(data)
+}
+
 /*
   Create a webdav handler.
 */
@@ -57,15 +147,14 @@ func buildHandler(dir string) {
 	// wire together a handler
 	fs := FS{Root: dir}
 	allowed := func(ctx context.Context, name string, allow Allow) bool {
-		if true {
-			return true
-		}
 		// not bothering to check the values at the moment
 		username, _ := ctx.Value("username").(string)
-		if _, err := os.Stat(name); os.IsNotExist(err) {
-			return false
+		//		log.Printf("WEBDAV %s allowed %s on %s", username, allow, name)
+		permission, err := evalRego(claimsInContext(fs.Root, username), regoOf(fs.Root, name))
+		if err != nil {
+			log.Printf("WEBDAV: error evaluating rego: %v", err)
 		}
-		log.Printf("WEBDAV %s allowed %s on %s", username, allow, name)
+		log.Printf("permission: %s: %v", name, permission)
 		return true
 	}
 	fs.AllowHandler = allowed

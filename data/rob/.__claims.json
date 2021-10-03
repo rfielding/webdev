@@ -1,0 +1,6 @@
+{
+	"groups": {
+		"age": ["adult"],
+		"citizen": ["US"]
+	}
+}

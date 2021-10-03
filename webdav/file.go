@@ -30,7 +30,6 @@ type FileSystem interface {
 	Stat(ctx context.Context, name string) (os.FileInfo, error)
 }
 
-
 // A File is returned by a FileSystem's OpenFile method and can be served by a
 // Handler.
 type File interface {

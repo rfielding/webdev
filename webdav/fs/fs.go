@@ -11,7 +11,6 @@ import (
 	"github.com/rfielding/webdev/webdav"
 )
 
-
 type Allow string
 
 const AllowMkdir = Allow("Mkdir")
@@ -66,12 +65,10 @@ func (f *DPFile) Write(b []byte) (int, error) {
 
 func (f *DPFile) DeadProps() (map[xml.Name]webdav.Property, error) {
 	return map[xml.Name]webdav.Property{
-		/*
-			{Space: "DAV:", Local: "banner"}: {
-				XMLName:  xml.Name{Space: "DAV:", Local: "banner"},
-				InnerXML: []byte("UNCLASSIFIED"),
-			},
-		*/
+		{Space: "DAV:", Local: "banner"}: {
+			XMLName:  xml.Name{Space: "DAV:", Local: "banner"},
+			InnerXML: []byte("UNCLASSIFIED"),
+		},
 	}, nil
 }
 
@@ -182,7 +179,6 @@ func (d FS) Rename(ctx context.Context, oldName, newName string) error {
 	if !d.Allow(ctx, newName, AllowOpenFileWrite) {
 		return webdav.ErrNotAllowed
 	}
-
 
 	if root := filepath.Clean(d.Root); root == oldName || root == newName {
 		// Prohibit renaming from or to the virtual root directory.
