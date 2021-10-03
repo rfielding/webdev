@@ -28,17 +28,8 @@ type FileSystem interface {
 	RemoveAll(ctx context.Context, name string) error
 	Rename(ctx context.Context, oldName, newName string) error
 	Stat(ctx context.Context, name string) (os.FileInfo, error)
-	Allow(ctx context.Context, name string, allow Allow) bool
 }
 
-type Allow string
-
-const AllowMkdir = Allow("Mkdir")
-const AllowOpenFileRead = Allow("OpenFileRead")
-const AllowOpenFileWrite = Allow("OpenFileWrite")
-const AllowRemoveAll = Allow("RemoveAll")
-const AllowRename = Allow("Rename")
-const AllowStat = Allow("Stat")
 
 // A File is returned by a FileSystem's OpenFile method and can be served by a
 // Handler.

@@ -11,6 +11,16 @@ import (
 	"github.com/rfielding/webdev/webdav"
 )
 
+
+type Allow string
+
+const AllowMkdir = Allow("Mkdir")
+const AllowOpenFileRead = Allow("OpenFileRead")
+const AllowOpenFileWrite = Allow("OpenFileWrite")
+const AllowRemoveAll = Allow("RemoveAll")
+const AllowRename = Allow("Rename")
+const AllowStat = Allow("Stat")
+
 type DPFile struct {
 	F   *os.File
 	FS  FS
@@ -40,7 +50,7 @@ func (f *DPFile) Readdir(n int) ([]fs.FileInfo, error) {
 	// filter out what we are not allowed to see
 	filteredResult := make([]fs.FileInfo, 0)
 	for i := range result {
-		if f.FS.Allow(f.Ctx, f.F.Name(), webdav.AllowStat) {
+		if f.FS.Allow(f.Ctx, f.F.Name(), AllowStat) {
 			filteredResult = append(filteredResult, result[i])
 		}
 	}
@@ -84,7 +94,7 @@ func (f *DPFile) Patch([]webdav.Proppatch) ([]webdav.Propstat, error) {
 //
 type FS struct {
 	Root         string
-	AllowHandler func(ctx context.Context, name string, allow webdav.Allow) bool
+	AllowHandler func(ctx context.Context, name string, allow Allow) bool
 }
 
 //
@@ -105,7 +115,7 @@ func (d FS) resolve(name string) string {
 	return filepath.Join(dir, filepath.FromSlash(webdav.SlashClean(name)))
 }
 
-func (d FS) Allow(ctx context.Context, name string, allow webdav.Allow) bool {
+func (d FS) Allow(ctx context.Context, name string, allow Allow) bool {
 	return d.AllowHandler(ctx, name, allow)
 }
 
@@ -113,7 +123,7 @@ func (d FS) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
 	if name = d.resolve(name); name == "" {
 		return os.ErrNotExist
 	}
-	if !d.Allow(ctx, name, webdav.AllowMkdir) {
+	if !d.Allow(ctx, name, AllowMkdir) {
 		return webdav.ErrNotAllowed
 	}
 	return os.Mkdir(name, perm)
@@ -123,13 +133,13 @@ func (d FS) OpenFile(ctx context.Context, name string, flag int, perm os.FileMod
 	if name = d.resolve(name); name == "" {
 		return nil, os.ErrNotExist
 	}
-	if !d.Allow(ctx, name, webdav.AllowStat) {
+	if !d.Allow(ctx, name, AllowStat) {
 		return nil, os.ErrNotExist
 	}
-	if !d.Allow(ctx, name, webdav.AllowOpenFileRead) {
+	if !d.Allow(ctx, name, AllowOpenFileRead) {
 		return nil, webdav.ErrNotAllowed
 	}
-	if (flag&os.O_RDWR) != 0 && !d.Allow(ctx, name, webdav.AllowOpenFileWrite) {
+	if (flag&os.O_RDWR) != 0 && !d.Allow(ctx, name, AllowOpenFileWrite) {
 		return nil, webdav.ErrNotAllowed
 	}
 	f, err := os.OpenFile(name, flag, perm)
@@ -143,10 +153,10 @@ func (d FS) RemoveAll(ctx context.Context, name string) error {
 	if name = d.resolve(name); name == "" {
 		return os.ErrNotExist
 	}
-	if !d.Allow(ctx, name, webdav.AllowStat) {
+	if !d.Allow(ctx, name, AllowStat) {
 		return os.ErrNotExist
 	}
-	if !d.Allow(ctx, name, webdav.AllowRemoveAll) {
+	if !d.Allow(ctx, name, AllowRemoveAll) {
 		return webdav.ErrNotAllowed
 	}
 	if name == filepath.Clean(d.Root) {
@@ -160,10 +170,10 @@ func (d FS) Rename(ctx context.Context, oldName, newName string) error {
 	if oldName = d.resolve(oldName); oldName == "" {
 		return os.ErrNotExist
 	}
-	if !d.Allow(ctx, oldName, webdav.AllowStat) {
+	if !d.Allow(ctx, oldName, AllowStat) {
 		return os.ErrNotExist
 	}
-	if !d.Allow(ctx, oldName, webdav.AllowRename) {
+	if !d.Allow(ctx, oldName, AllowRename) {
 		return webdav.ErrNotAllowed
 	}
 	if newName = d.resolve(newName); newName == "" {
@@ -180,7 +190,7 @@ func (d FS) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 	if name = d.resolve(name); name == "" {
 		return nil, os.ErrNotExist
 	}
-	if !d.Allow(ctx, name, webdav.AllowStat) {
+	if !d.Allow(ctx, name, AllowStat) {
 		return nil, os.ErrNotExist
 	}
 	return os.Stat(name)
