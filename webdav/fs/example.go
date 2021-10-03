@@ -39,7 +39,7 @@ func evalRego(claims interface{}, opaObj string) (map[string]interface{}, error)
 
 	results, err := query.Eval(ctx, rego.EvalInput(claims))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("while evaulating opaObj: %s: %v", opaObj, err)
 	}
 	return results[0].Expressions[0].Value.(map[string]interface{}), nil
 }
@@ -100,14 +100,23 @@ type Claims struct {
 
 type ClaimsContext struct {
 	Claims Claims
+	Action Action
 }
 
 var emptyClaims = ClaimsContext{
 	Claims: Claims{Groups: make(map[string][]string)},
+	Action: Action{},
 }
 
-func claimsInContext(root, username string) interface{} {
+func claimsInContext(root, username string, action Action) interface{} {
 	claimsFile := fmt.Sprintf("%s/%s/.__claims.json", root, username)
+	if _, err := os.Stat(path.Dir(claimsFile)); os.IsNotExist(err) {
+		err = os.Mkdir(path.Dir(claimsFile),0744)
+		if err != nil {
+			log.Printf("WEBDAV: could not make home dir %s %v", path.Dir(claimsFile), err)
+			return emptyClaims
+		}
+	}
 	//log.Printf("use claims file %s", claimsFile)
 	data, err := ioutil.ReadFile(claimsFile)
 	if err != nil {
@@ -122,6 +131,7 @@ func claimsInContext(root, username string) interface{} {
 	}
 	return ClaimsContext{
 		Claims: claims,
+		Action: action,
 	}
 }
 
@@ -176,16 +186,16 @@ func regoOf(root, name string) string {
 func buildHandler(dir string) {
 	// wire together a handler
 	fs := FS{Root: dir}
-	allowed := func(ctx context.Context, name string) map[string]interface{} {
+	allowed := func(ctx context.Context, action Action) map[string]interface{} {
 		// not bothering to check the values at the moment
 		username, _ := ctx.Value("username").(string)
 		//		log.Printf("WEBDAV %s allowed %s on %s", username, allow, name)
-		permission, err := evalRego(claimsInContext(fs.Root, username), regoOf(fs.Root, name))
+		permission, err := evalRego(claimsInContext(fs.Root, username, action), regoOf(fs.Root, action.Name))
 		if err != nil {
 			log.Printf("WEBDAV: error evaluating rego: %v", err)
 			return make(map[string]interface{})
 		}
-		log.Printf("permission: %s: %v", name, AsJson(permission))
+		log.Printf("permission: %s: %v", action.Name, AsJson(permission))
 		return permission
 	}
 	fs.PermissionHandler = allowed
