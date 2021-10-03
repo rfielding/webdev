@@ -1,7 +1,13 @@
 #!/bin/bash
 
 go mod tidy
-( cd certs ; ./mkcert )
-cp certs/localhost.key key.pem
-cp certs/localhost.crt cert.pem
+if [ -x cert.pem ]
+then
+	echo using certificates for https
+else
+	echo setting up https
+	( cd certs ; ./mkcert )
+	cp certs/localhost.key key.pem
+	cp certs/localhost.crt cert.pem
+fi
 go run server.go -s true
