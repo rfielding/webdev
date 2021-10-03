@@ -15,6 +15,14 @@ import (
 	"strings"
 )
 
+func AsJson(obj interface{}) string {
+	j, err := json.MarshalIndent(obj, "", "  ")
+	if err != nil {
+		log.Printf("cannot convert AsJson: %v", err)
+	}
+	return string(j)
+}
+
 func evalRego(claims interface{}, opaObj string) (map[string]interface{}, error) {
 	ctx := context.TODO()
 
@@ -76,12 +84,12 @@ func (a *authWrappedHandler) ServeHTTP(
 }
 
 type Permission struct {
-	AllowMkdir bool `json:"AllowMkdir,omitempty"`
-	AllowOpenRead bool `json:"AllowOpenRead,omitempty"`
-	AllowOpenWrite bool `json:"AllowOpenWrite,omitempty"`
-	AllowRemoveAll bool `json:"AllowRemoveAll,omitempty"`
-	AllowStat bool `json:"AllowStat,omitempty"`
-	Banner string `json:"Banner,omitempty`
+	AllowMkdir       bool   `json:"AllowMkdir,omitempty"`
+	AllowOpenRead    bool   `json:"AllowOpenRead,omitempty"`
+	AllowOpenWrite   bool   `json:"AllowOpenWrite,omitempty"`
+	AllowRemoveAll   bool   `json:"AllowRemoveAll,omitempty"`
+	AllowStat        bool   `json:"AllowStat,omitempty"`
+	Banner           string `json:"Banner,omitempty`
 	BannerForeground string `json:"BannerForeground,omitempty`
 	BannerBackground string `json:"BannerBackground,omitempty`
 }
@@ -94,22 +102,39 @@ type ClaimsContext struct {
 	Claims Claims
 }
 
+var emptyClaims = ClaimsContext{
+	Claims: Claims{Groups: make(map[string][]string)},
+}
+
 func claimsInContext(root, username string) interface{} {
 	claimsFile := fmt.Sprintf("%s/%s/.__claims.json", root, username)
 	//log.Printf("use claims file %s", claimsFile)
 	data, err := ioutil.ReadFile(claimsFile)
 	if err != nil {
 		log.Printf("WEBDAV: reading claims %v", err)
+		return emptyClaims
 	}
 	var claims Claims
-	err = json.Unmarshal(data,&claims)
+	err = json.Unmarshal(data, &claims)
 	if err != nil {
 		log.Printf("WEBDAV: unmarshal claims %v", err)
+		return emptyClaims
 	}
 	return ClaimsContext{
 		Claims: claims,
 	}
 }
+
+const emptyPolicy = `package policy
+AllowMkdir = false
+AllowOpenRead = false
+AllowOpenWrite = false
+AllowRemoveAll = false
+AllowStat = false
+Banner = "error"
+BannerForeground = "white"
+BannerBackground = "black"
+`
 
 func regoOf(root, name string) string {
 	d := path.Dir(name)
@@ -121,7 +146,12 @@ func regoOf(root, name string) string {
 		if d == "." {
 			regoFile = fmt.Sprintf("%s/.__thisdir.rego", b)
 		} else {
-			if s, _ := os.Stat(name); s.IsDir() {
+			s, err := os.Stat(name)
+			if err != nil {
+				log.Printf("WEBDAV: stat on rego file %v", err)
+				return emptyPolicy
+			}
+			if s.IsDir() {
 				regoFile = fmt.Sprintf("%s/.__thisdir.rego", name)
 			} else {
 				regoFile = fmt.Sprintf("%s/.__%s.rego", d, b)
@@ -135,7 +165,7 @@ func regoOf(root, name string) string {
 	}
 	if err != nil {
 		log.Printf("WEBDAV: reading rego %v", err)
-		return "package policy\n"
+		return emptyPolicy
 	}
 	return string(data)
 }
@@ -154,7 +184,7 @@ func buildHandler(dir string) {
 		if err != nil {
 			log.Printf("WEBDAV: error evaluating rego: %v", err)
 		}
-		log.Printf("permission: %s: %v", name, permission)
+		log.Printf("permission: %s: %v", name, AsJson(permission))
 		return true
 	}
 	fs.AllowHandler = allowed
