@@ -1,7 +1,7 @@
 #!/bin/bash
 
 go mod tidy
-if [ -x cert.pem ]
+if [ -f cert.pem ]
 then
 	echo using certificates for https
 else

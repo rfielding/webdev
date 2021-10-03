@@ -11,27 +11,40 @@ import (
 	"strings"
 )
 
-type Allow string
+/*
+   These are the expected types
+*/
+var _ webdav.File = &DPFile{}
+var _ webdav.FileSystem = &FS{}
 
+
+/*
+  There are a few actions that we need permission for
+*/
+type Allow string
 const AllowCreate = Allow("Create")
 const AllowRead = Allow("Read")
 const AllowWrite = Allow("Write")
 const AllowDelete = Allow("Delete")
 const AllowStat = Allow("Stat")
 
+/*
+  At a minimum, we need to know what kind of change we are making to which file
+*/
 type Action struct {
 	Action Allow `json:"action"`
 	Name string `json:"name"`
 }
 
+/*
+ This is a file object that can support DeadProperties
+ */
 type DPFile struct {
 	F   *os.File
 	FS  FS
 	Ctx context.Context
 }
 
-var _ webdav.File = &DPFile{}
-var _ webdav.FileSystem = &FS{}
 
 func (f *DPFile) Read(b []byte) (int, error) {
 	return f.F.Read(b)
@@ -71,18 +84,21 @@ func (f *DPFile) Write(b []byte) (int, error) {
 
 // TODO: we need to serialize and unserialize dead properties.
 // This is critical to usability for clients, to be able to
-// store their own data
+// store their own data.  If we don't support this, then
+// users will resort to unseemly things to track their custom data.
 func (f *DPFile) DeadProps() (map[xml.Name]webdav.Property, error) {
 	return map[xml.Name]webdav.Property{
 		/*
 		{Space: "DAV:", Local: "banner"}: {
 			XMLName:  xml.Name{Space: "DAV:", Local: "banner"},
-			InnerXML: []byte("UNCLASSIFIED"),
+			InnerXML: []byte("PRIVATE"),
 		},
 		*/
 	}, nil
 }
 
+// TODO: figure out what needs to be serialized.  I don't think there
+// is any standard.
 func (f *DPFile) Patch([]webdav.Proppatch) ([]webdav.Propstat, error) {
 	return make([]webdav.Propstat, 0), nil
 }
@@ -114,6 +130,8 @@ func (d FS) resolve(name string) string {
 	return filepath.Join(dir, filepath.FromSlash(webdav.SlashClean(name)))
 }
 
+
+// Convenience function for extracting a boolean permission once the calculation is done for the file in context
 func (d FS) Allow(ctx context.Context, permissions map[string]interface{}, allow Allow) bool {
 	v, ok := permissions[string(allow)].(bool)
 	if ok {
@@ -208,6 +226,7 @@ func (d FS) Rename(ctx context.Context, oldName, newName string) error {
 	return os.Rename(oldName, newName)
 }
 
+// Note that if we can't stat a file, we should tell the user that it does not exist.
 func (d FS) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 	if name = d.resolve(name); name == "" {
 		return nil, os.ErrNotExist
