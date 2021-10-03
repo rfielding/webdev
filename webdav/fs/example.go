@@ -15,7 +15,7 @@ func ExampleMain() {
 
 	// parse environmental setup
 	dirFlag := flag.String("d", "./data", "Directory to serve from. Default is CWD")
-	httpPort := flag.Int("p", 8001, "Port to serve on (Plain HTTP)")
+	httpPort := flag.Int("p", 8000, "Port to serve on (Plain HTTP)")
 	serveSecure := flag.Bool("s", false, "Serve HTTPS. Default false")
 	flag.Parse()
 
