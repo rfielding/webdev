@@ -27,7 +27,7 @@ func AsJson(obj interface{}) string {
 	return string(j)
 }
 
-/* 
+/*
   Calculate some permissions
 */
 func evalRego(claims interface{}, opaObj string) (map[string]interface{}, error) {
@@ -73,7 +73,7 @@ type authWrappedHandler struct {
 }
 
 /**
- Wrap in trivial authentication so that the permission system can work.
+Wrap in trivial authentication so that the permission system can work.
 */
 func (a *authWrappedHandler) ServeHTTP(
 	w http.ResponseWriter,
@@ -137,7 +137,7 @@ var emptyClaims = ClaimsContext{
 func claimsInContext(root, username string, action fs.Action) interface{} {
 	claimsFile := fmt.Sprintf("%s/%s/.__claims.json", root, username)
 	if _, err := os.Stat(path.Dir(claimsFile)); os.IsNotExist(err) {
-		err = os.Mkdir(path.Dir(claimsFile),0744)
+		err = os.Mkdir(path.Dir(claimsFile), 0744)
 		if err != nil {
 			log.Printf("WEBDAV: could not make home dir %s %v", path.Dir(claimsFile), err)
 			return emptyClaims
@@ -178,7 +178,7 @@ BannerBackground = "black"
 
 /*
   Find the rego that applies to this file.
-  Perhaps not for this file specifically, 
+  Perhaps not for this file specifically,
   but via its parent.
 */
 func regoOf(root, name string) string {

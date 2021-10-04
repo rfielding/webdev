@@ -3,8 +3,11 @@ package fs
 import (
 	"context"
 	"encoding/xml"
+	"fmt"
 	"github.com/rfielding/webdev/webdav"
 	"io/fs"
+	"io/ioutil"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -17,11 +20,11 @@ import (
 var _ webdav.File = &DPFile{}
 var _ webdav.FileSystem = &FS{}
 
-
 /*
   There are a few actions that we need permission for
 */
 type Allow string
+
 const AllowCreate = Allow("Create")
 const AllowRead = Allow("Read")
 const AllowWrite = Allow("Write")
@@ -32,19 +35,18 @@ const AllowStat = Allow("Stat")
   At a minimum, we need to know what kind of change we are making to which file
 */
 type Action struct {
-	Action Allow `json:"action"`
-	Name string `json:"name"`
+	Action Allow  `json:"action"`
+	Name   string `json:"name"`
 }
 
 /*
  This is a file object that can support DeadProperties
- */
+*/
 type DPFile struct {
 	F   *os.File
 	FS  FS
 	Ctx context.Context
 }
-
 
 func (f *DPFile) Read(b []byte) (int, error) {
 	return f.F.Read(b)
@@ -82,17 +84,51 @@ func (f *DPFile) Write(b []byte) (int, error) {
 	return f.F.Write(b)
 }
 
+func NameOf(name, ftype string) string {
+	d := path.Dir(name)
+	b := path.Base(name)
+	xmlFile := name
+	if strings.HasPrefix(".__", b) {
+		// ignore
+	} else {
+		if d == "." {
+			xmlFile = fmt.Sprintf("%s/.__%s", b, ftype)
+		} else {
+			s, err := os.Stat(name)
+			if err != nil {
+				log.Printf("WEBDAV: stat on %s file %v", ftype, err)
+				//return map[xml.Name]webdav.Property{}, err
+			} else {
+				if s.IsDir() {
+					xmlFile = fmt.Sprintf("%s/.__%s", name, ftype)
+				} else {
+					xmlFile = fmt.Sprintf("%s/.__%s.%s", d, b, ftype)
+				}	
+			}
+		}
+	}
+	return xmlFile
+} 
+
 // TODO: we need to serialize and unserialize dead properties.
 // This is critical to usability for clients, to be able to
 // store their own data.  If we don't support this, then
 // users will resort to unseemly things to track their custom data.
 func (f *DPFile) DeadProps() (map[xml.Name]webdav.Property, error) {
+	xmlFile := NameOf(f.F.Name(), "deadproperties.xml")
+	log.Printf("xml file %s", xmlFile)
+	data, err := ioutil.ReadFile(xmlFile)
+	if err != nil {
+		log.Printf("WEBDAV: could not read deadproperties file: %v", err)
+		//return nil, err
+	}
+	log.Printf("%s", string(data))
 	return map[xml.Name]webdav.Property{
 		/*
-		{Space: "DAV:", Local: "banner"}: {
-			XMLName:  xml.Name{Space: "DAV:", Local: "banner"},
-			InnerXML: []byte("PRIVATE"),
-		},
+			{Space: "DAV:", Local: "banner"}: {
+				XMLName:  xml.Name{Space: "DAV:", Local: "banner"},
+				InnerXML: []byte("PRIVATE"),
+			},
 		*/
 	}, nil
 }
@@ -106,7 +142,7 @@ func (f *DPFile) Patch([]webdav.Proppatch) ([]webdav.Propstat, error) {
 // A FS implements FileSystem using the native file system restricted to a
 // specific directory tree.
 type FS struct {
-	Root         string
+	Root              string
 	PermissionHandler func(ctx context.Context, action Action) map[string]interface{}
 }
 
@@ -129,7 +165,6 @@ func (d FS) resolve(name string) string {
 	}
 	return filepath.Join(dir, filepath.FromSlash(webdav.SlashClean(name)))
 }
-
 
 // Convenience function for extracting a boolean permission once the calculation is done for the file in context
 func (d FS) Allow(ctx context.Context, permissions map[string]interface{}, allow Allow) bool {
