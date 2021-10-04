@@ -31,7 +31,7 @@ curl -X PROPFIND -u "rob:rob" -k https://localhost:8000/pic.jpg | xmllint --form
 
 ```
 ...
-```
+```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <D:multistatus xmlns:D="DAV:">
   <D:response>
