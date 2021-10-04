@@ -3,6 +3,7 @@ package fs
 import (
 	"context"
 	"encoding/xml"
+	"encoding/json"
 	"fmt"
 	"github.com/rfielding/webdev/webdav"
 	"io/fs"
@@ -12,6 +13,8 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	//ixml "github.com/rfielding/webdev/webdav/internal/xml"
+
 )
 
 /*
@@ -84,65 +87,113 @@ func (f *DPFile) Write(b []byte) (int, error) {
 	return f.F.Write(b)
 }
 
-func NameOf(name, ftype string) string {
+// Encapsulate naming conventions for files that are attachments to real files
+func NameFor(name, ftype string) string {
 	d := path.Dir(name)
 	b := path.Base(name)
-	xmlFile := name
+	theFile := name
 	if strings.HasPrefix(".__", b) {
 		// ignore
 	} else {
 		if d == "." {
-			xmlFile = fmt.Sprintf("%s/.__%s", b, ftype)
+			theFile = fmt.Sprintf("%s/.__%s", b, ftype)
 		} else {
 			s, err := os.Stat(name)
 			if err != nil {
 				log.Printf("WEBDAV: stat on %s file %v", ftype, err)
-				//return map[xml.Name]webdav.Property{}, err
+				return ""
 			} else {
 				if s.IsDir() {
-					xmlFile = fmt.Sprintf("%s/.__%s", name, ftype)
+					theFile = fmt.Sprintf("%s/.__%s", name, ftype)
 				} else {
-					xmlFile = fmt.Sprintf("%s/.__%s.%s", d, b, ftype)
+					theFile = fmt.Sprintf("%s/.__%s.%s", d, b, ftype)
 				}	
 			}
 		}
 	}
-	return xmlFile
+	return theFile
 } 
 
-// TODO: we need to serialize and unserialize dead properties.
-// This is critical to usability for clients, to be able to
-// store their own data.  If we don't support this, then
-// users will resort to unseemly things to track their custom data.
 func (f *DPFile) DeadProps() (map[xml.Name]webdav.Property, error) {
-	xmlFile := NameOf(f.F.Name(), "deadproperties.xml")
-	log.Printf("xml file %s", xmlFile)
-	data, err := ioutil.ReadFile(xmlFile)
-	if err != nil {
-		log.Printf("WEBDAV: could not read deadproperties file: %v", err)
-		//return nil, err
+	// To avoid xml serialization hassles, just store the dead properties as json
+	// xml handling is too much of a mess at the moment
+	name := f.F.Name()
+	// No dead properties on metadata files.
+	if strings.HasPrefix(path.Base(name), ".__") {
+		return map[xml.Name]webdav.Property{}, nil	
 	}
-	log.Printf("%s", string(data))
-	return map[xml.Name]webdav.Property{
-		/*
-			{Space: "DAV:", Local: "banner"}: {
-				XMLName:  xml.Name{Space: "DAV:", Local: "banner"},
-				InnerXML: []byte("PRIVATE"),
-			},
-		*/
-	}, nil
+
+	// If the file doesn't exist, then return empty properties
+	retval := make(map[xml.Name]webdav.Property)
+	propertiesFile := NameFor(name, "deadproperties.json")
+	if _,err := os.Stat(propertiesFile); os.IsNotExist(err) {
+		return retval,nil
+	}
+	bytes, err := ioutil.ReadFile(propertiesFile)
+	if err != nil {
+		log.Printf("error opening properties file %s: %v", propertiesFile, err)
+		return retval, nil
+	}
+	var propertiesMap map[string]string 
+	err = json.Unmarshal(bytes,&propertiesMap)
+	if err != nil {
+		log.Printf("error unmarshalling json %s: %v", propertiesFile, err)
+		return retval, nil
+	}
+	for k := range propertiesMap {
+		log.Printf("set: %s -> %s", k, propertiesMap[k])
+		retval[xml.Name{Space: "DAV:", Local: k}] = webdav.Property{
+            XMLName:  xml.Name{Space: "DAV:", Local: k},
+            InnerXML: []byte(propertiesMap[k]),
+		}
+	}
+	return retval, nil
 }
 
 // TODO: figure out what needs to be serialized.  I don't think there
 // is any standard.
-func (f *DPFile) Patch([]webdav.Proppatch) ([]webdav.Propstat, error) {
-	return make([]webdav.Propstat, 0), nil
+func (f *DPFile) Patch(p []webdav.Proppatch) ([]webdav.Propstat, error) {
+	// Update the properties struct and return val
+	retval := make([]webdav.Propstat, 0)
+	current, err := f.DeadProps()
+	if err != nil {
+		return retval, nil
+	}
+	var writeVal map[string]string
+	for k := range current {
+		writeVal[k.Local] = string(current[k].InnerXML)
+	}
+	for i := range p {
+		for j := range p[i].Props {
+			v := p[i].Props[j]
+			k := v.XMLName.Local
+			s := string(v.InnerXML)
+			retval[0].Props = append(retval[0].Props, webdav.Property{
+				XMLName:  xml.Name{Space: "DAV:", Local: k},
+				InnerXML: []byte(s),	
+			})
+			writeVal[k] = s
+			retval[0].Status = 200
+		}
+	}
+	// Persist it back to disk as json
+	data, err := json.MarshalIndent(writeVal, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	propertiesFile := NameFor(f.F.Name(), "deadproperties.json")
+	err = ioutil.WriteFile(propertiesFile, data, 0744)
+	if err != nil {
+		return nil, err
+	}
+	return retval, nil
 }
 
 // A FS implements FileSystem using the native file system restricted to a
 // specific directory tree.
 type FS struct {
 	Root              string
+	Locks webdav.LockSystem
 	PermissionHandler func(ctx context.Context, action Action) map[string]interface{}
 }
 

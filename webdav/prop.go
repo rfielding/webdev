@@ -268,6 +268,7 @@ func allprop(ctx context.Context, fs FileSystem, ls LockSystem, name string, inc
 	return props(ctx, fs, ls, name, pnames)
 }
 
+
 // Patch patches the properties of resource name. The return values are
 // constrained in the same manner as DeadPropsHolder.Patch.
 func patch(ctx context.Context, fs FileSystem, ls LockSystem, name string, patches []Proppatch) ([]Propstat, error) {

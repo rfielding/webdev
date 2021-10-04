@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"strings"
 )
 
 /*
@@ -182,28 +181,8 @@ BannerBackground = "black"
   but via its parent.
 */
 func regoOf(root, name string) string {
+	regoFile := fs.NameFor(name, "security.rego")
 	d := path.Dir(name)
-	b := path.Base(name)
-	regoFile := name
-	if strings.HasPrefix(".__", b) {
-		// ignore
-	} else {
-		if d == "." {
-			regoFile = fmt.Sprintf("%s/.__thisdir.rego", b)
-		} else {
-			s, err := os.Stat(name)
-			if err != nil {
-				log.Printf("WEBDAV: stat on rego file %v", err)
-				return emptyPolicy
-			}
-			if s.IsDir() {
-				regoFile = fmt.Sprintf("%s/.__thisdir.rego", name)
-			} else {
-				regoFile = fmt.Sprintf("%s/.__%s.rego", d, b)
-			}
-		}
-	}
-	//log.Printf("rego file %s", regoFile)
 	data, err := ioutil.ReadFile(regoFile)
 	if d != "." && d != root && os.IsNotExist(err) {
 		return regoOf(root, d)
@@ -220,7 +199,8 @@ func regoOf(root, name string) string {
 */
 func buildHandler(dir string) {
 	// wire together a handler
-	fsys := fs.FS{Root: dir}
+	locks := fs.NewMemLS()
+	fsys := fs.FS{Root: dir, Locks: locks}
 	allowed := func(ctx context.Context, action fs.Action) map[string]interface{} {
 		// not bothering to check the values at the moment
 		username, _ := ctx.Value("username").(string)
@@ -238,7 +218,7 @@ func buildHandler(dir string) {
 	// The raw webdav handler that doesn't have a context set
 	srv := &webdav.Handler{
 		FileSystem: fsys,
-		LockSystem: fs.NewMemLS(),
+		LockSystem: locks,
 		Logger: func(r *http.Request, err error) {
 			if err != nil {
 				log.Printf("WEBDAV %s [%s]: %s, ERROR: %s\n", r.Context().Value("username"), r.Method, r.URL, err)
